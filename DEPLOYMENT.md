@@ -44,8 +44,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 **설정 방법:**
 1. [Google AI Studio](https://makersuite.google.com/app/apikey) 접속
 2. 새 API 키 생성
-3. `.env.local` 파일에 키 추가
-4. 키를 안전하게 보관 (절대 공개 저장소에 커밋하지 말 것)
+3. 키를 안전하게 보관
 
 #### 2. EmailJS 설정 (이메일 기능 사용 시)
 ```env
