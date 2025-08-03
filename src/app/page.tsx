@@ -127,7 +127,7 @@ function HomeContent() {
           </div>
         </div>
 
-        <main className="h-[calc(200vh-280px)] relative">
+        <main className="h-[calc(150vh-280px)] relative">
           {activeTab === 'chat' ? (
             <ChatInterface 
               onNewMessage={handleNewMessage}
