@@ -142,13 +142,13 @@ function parseGeminiResponse(text: string): { feedback: string; recommendations:
     }
 
     // 추천사항 ID 생성 (없는 경우)
-    const recommendations = parsed.recommendations.map((rec: unknown, index: number) => ({
-      id: rec.id || `rec_${Date.now()}_${index}`,
-      title: rec.title || '제목 없음',
-      description: rec.description || '설명 없음',
-      category: rec.category || '기타',
-      priority: rec.priority || 3,
-      url: rec.url || undefined
+    const recommendations = parsed.recommendations.map((rec: Record<string, unknown>, index: number) => ({
+      id: (typeof rec.id === 'string' ? rec.id : null) || `rec_${Date.now()}_${index}`,
+      title: (typeof rec.title === 'string' ? rec.title : null) || '제목 없음',
+      description: (typeof rec.description === 'string' ? rec.description : null) || '설명 없음',
+      category: (typeof rec.category === 'string' ? rec.category : null) || '기타',
+      priority: (typeof rec.priority === 'number' ? rec.priority : null) || 3,
+      url: typeof rec.url === 'string' ? rec.url : undefined
     }));
 
     return {

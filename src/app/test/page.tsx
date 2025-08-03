@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function TestPage() {
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{status?: number; data?: unknown; error?: string} | null>(null);
   const [loading, setLoading] = useState(false);
 
   const testAPI = async () => {

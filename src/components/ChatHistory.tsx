@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ChatSession } from '@/stores/chatStore';
-import { useChatStore } from '@/stores/chatStore';
+import { ChatSession, useChatStore } from '@/stores/chatStore';
+import type { ChatStore } from '@/stores/chatStore';
 import { useHydratedStore } from '@/hooks/useHydratedStore';
 import PDFExportModal from './PDFExportModal';
 
@@ -18,7 +18,7 @@ export default function ChatHistory({ onSessionSelect, onClose }: ChatHistoryPro
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [selectedSessionForPDF, setSelectedSessionForPDF] = useState<ChatSession | null>(null);
 
-  const chatStore = useHydratedStore(useChatStore);
+  const chatStore = useHydratedStore<ChatStore>(useChatStore);
 
   if (!chatStore) {
     return (
@@ -28,12 +28,12 @@ export default function ChatHistory({ onSessionSelect, onClose }: ChatHistoryPro
     );
   }
 
-  const { sessions, currentSession, deleteSession, updateSessionTitle, loadSession } = chatStore;
+  const { sessions, currentSession, deleteSession, updateSessionTitle, loadSession } = chatStore!;
 
   // 검색 및 필터링
   const filteredSessions = searchQuery.trim()
-    ? chatStore.searchSessions(searchQuery)
-    : chatStore.getRecentSessions(50);
+    ? chatStore!.searchSessions(searchQuery)
+    : chatStore!.getRecentSessions(50);
 
   const handleSessionClick = (session: ChatSession) => {
     loadSession(session.id);

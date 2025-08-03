@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { UserInput, AIResponse, ChatMessage, Recommendation } from '@/types';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { UserInput, ChatMessage, Recommendation } from '@/types';
 import { callChatAPI } from '@/lib/api-client';
 import { TypingIndicator } from './LoadingIndicator';
 import MessageStatus from './MessageStatus';
@@ -10,6 +10,7 @@ import RecommendationModal from './RecommendationModal';
 import PDFExportModal from './PDFExportModal';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useChatStore } from '@/stores/chatStore';
+import type { ChatStore } from '@/stores/chatStore';
 import { useHydratedStore } from '@/hooks/useHydratedStore';
 
 interface ChatInterfaceProps {
@@ -36,28 +37,28 @@ export default function ChatInterface({ onNewMessage, onNewRecommendations, sess
   const { bookmarkedIds, toggleBookmark, isBookmarked } = useBookmarks();
   
   // 채팅 스토어 사용 (하이드레이션 안전)
-  const chatStore = useHydratedStore(useChatStore);
+  const chatStore = useHydratedStore<ChatStore>(useChatStore);
   
-  // 현재 세션의 메시지와 추천사항
-  const messages = chatStore?.currentSession?.messages || [];
-  const currentRecommendations = chatStore?.currentSession?.recommendations || [];
-  const currentSessionId = chatStore?.currentSession?.id;
+  // 현재 세션의 메시지와 추천사항 (메모이제이션)
+  const messages = useMemo(() => chatStore?.currentSession?.messages || [], [chatStore?.currentSession?.messages]);
+  const currentRecommendations = useMemo(() => chatStore?.currentSession?.recommendations || [], [chatStore?.currentSession?.recommendations]);
+  const currentSessionId = useMemo(() => chatStore?.currentSession?.id, [chatStore?.currentSession?.id]);
 
-  // 스크롤 자동 이동
-  const scrollToBottom = (force = false) => {
-    if (force || isNearBottom()) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  // 스크롤이 하단 근처에 있는지 확인
-  const isNearBottom = () => {
+  // 스크롤이 하단 근처에 있는지 확인 (useCallback으로 메모이제이션)
+  const isNearBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return true;
     
     const threshold = 100;
     return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-  };
+  }, []);
+
+  // 스크롤 자동 이동 (useCallback으로 메모이제이션)
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isNearBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isNearBottom]);
 
   useEffect(() => {
     scrollToBottom();
@@ -65,17 +66,22 @@ export default function ChatInterface({ onNewMessage, onNewRecommendations, sess
 
   // 컴포넌트 마운트 시 세션 초기화 및 입력창 포커스
   useEffect(() => {
-    if (chatStore) {
-      if (sessionId) {
-        // 특정 세션 로드
+    if (!chatStore) return;
+    
+    const currentSessionId = chatStore.currentSession?.id;
+    
+    if (sessionId) {
+      // 특정 세션 로드 (현재 세션과 다른 경우에만)
+      if (currentSessionId !== sessionId) {
         chatStore.loadSession(sessionId);
-      } else if (!chatStore.currentSession) {
-        // 새 세션 생성
-        chatStore.createNewSession();
       }
+    } else if (!currentSessionId) {
+      // 새 세션 생성
+      chatStore.createNewSession();
     }
+    
     inputRef.current?.focus();
-  }, [chatStore, sessionId]);
+  }, [sessionId, chatStore]); // 필요한 의존성만 포함
 
   // 스크롤 이벤트 처리
   useEffect(() => {
@@ -89,7 +95,7 @@ export default function ChatInterface({ onNewMessage, onNewRecommendations, sess
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isNearBottom]);
 
   // 메시지 추가 함수
   const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
@@ -101,17 +107,18 @@ export default function ChatInterface({ onNewMessage, onNewRecommendations, sess
       timestamp: new Date()
     };
     
-    // 스토어에 메시지 추가
-    chatStore.addMessageToSession(currentSessionId, newMessage);
-    onNewMessage?.(newMessage);
-    return newMessage;
+    try {
+      // 스토어에 메시지 추가
+      chatStore.addMessageToSession(currentSessionId, newMessage);
+      onNewMessage?.(newMessage);
+      return newMessage;
+    } catch (error) {
+      console.error('메시지 추가 중 오류:', error);
+      return null;
+    }
   };
 
-  // 메시지 업데이트 함수 (현재는 스토어에서 직접 관리하므로 제거 예정)
-  const updateMessage = (id: string, updates: Partial<ChatMessage>) => {
-    // 스토어 기반으로 변경 필요 시 구현
-    console.log('Message update requested:', id, updates);
-  };
+
 
   // 메시지 상태 업데이트
   const updateMessageStatus = (messageId: string, status: 'sending' | 'sent' | 'delivered' | 'error') => {
@@ -132,6 +139,11 @@ export default function ChatInterface({ onNewMessage, onNewRecommendations, sess
       type: 'user',
       content: userMessage
     });
+
+    if (!userMsg) {
+      console.error('Failed to add user message');
+      return;
+    }
 
     // 메시지 상태를 전송 중으로 설정
     updateMessageStatus(userMsg.id, 'sending');
@@ -261,9 +273,9 @@ export default function ChatInterface({ onNewMessage, onNewRecommendations, sess
             <p className="text-lg font-medium mb-2">AI 학습 코치와 대화를 시작하세요</p>
             <p className="text-sm mb-4">학습 목표, 관심 분야, 현재 고민 등 무엇이든 물어보세요!</p>
             <div className="text-xs text-gray-400 space-y-1">
-              <p>💡 예시: "웹 개발을 배우고 싶어요"</p>
-              <p>💡 예시: "React를 공부하고 있는데 어려워요"</p>
-              <p>💡 예시: "프로그래밍 취업 준비 방법을 알려주세요"</p>
+              <p>💡 예시: &ldquo;웹 개발을 배우고 싶어요&rdquo;</p>
+              <p>💡 예시: &ldquo;React를 공부하고 있는데 어려워요&rdquo;</p>
+              <p>💡 예시: &ldquo;프로그래밍 취업 준비 방법을 알려주세요&rdquo;</p>
             </div>
           </div>
         ) : (
@@ -408,7 +420,7 @@ function MessageBubble({
           />
           <div className={`flex items-center justify-between mt-2 ${isUser ? 'flex-row-reverse' : ''}`}>
             <div className={`text-xs ${isUser ? 'text-green-100' : 'text-gray-500'}`}>
-              {message.timestamp.toLocaleTimeString('ko-KR', { 
+              {new Date(message.timestamp).toLocaleTimeString('ko-KR', { 
                 hour: '2-digit', 
                 minute: '2-digit' 
               })}

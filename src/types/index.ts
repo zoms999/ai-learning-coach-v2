@@ -38,7 +38,7 @@ export interface ChatRequest {
 export interface APIError {
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 // 채팅 메시지 타입

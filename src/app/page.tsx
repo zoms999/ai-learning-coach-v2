@@ -4,16 +4,21 @@ import { useState } from 'react';
 import ChatInterface from '@/components/ChatInterface';
 import BookmarkedRecommendations from '@/components/BookmarkedRecommendations';
 import ChatHistory from '@/components/ChatHistory';
+import RealTimeChatInterface from '@/components/RealTimeChatInterface';
+import UserProfileModal from '@/components/UserProfileModal';
 import { ToastProvider, useToast } from '@/contexts/ToastContext';
 import { ChatMessage, Recommendation } from '@/types';
+import { RoomUser } from '@/lib/socket-server';
 import { useBookmarks } from '@/hooks/useBookmarks';
 
 function HomeContent() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [allRecommendations, setAllRecommendations] = useState<Recommendation[]>([]);
-  const [activeTab, setActiveTab] = useState<'chat' | 'bookmarks' | 'history'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'bookmarks' | 'history' | 'realtime'>('chat');
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>();
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [currentUser, setCurrentUser] = useState<RoomUser | null>(null);
   const { showToast } = useToast();
   const { bookmarkCount } = useBookmarks();
 
@@ -34,6 +39,33 @@ function HomeContent() {
     setSelectedSessionId(sessionId);
     setActiveTab('chat');
     setShowChatHistory(false);
+  };
+
+  const handleUserProfileSave = (user: RoomUser) => {
+    setCurrentUser(user);
+    // 로컬 스토리지에 사용자 정보 저장
+    localStorage.setItem('realtime-chat-user', JSON.stringify(user));
+  };
+
+  const handleRealtimeTabClick = () => {
+    // 사용자 프로필이 없으면 프로필 설정 모달 표시
+    if (!currentUser) {
+      // 로컬 스토리지에서 사용자 정보 확인
+      const savedUser = localStorage.getItem('realtime-chat-user');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          setCurrentUser(user);
+          setActiveTab('realtime');
+        } catch {
+          setShowUserProfile(true);
+        }
+      } else {
+        setShowUserProfile(true);
+      }
+    } else {
+      setActiveTab('realtime');
+    }
   };
 
   return (
@@ -60,6 +92,16 @@ function HomeContent() {
               }`}
             >
               💬 AI 채팅
+            </button>
+            <button
+              onClick={handleRealtimeTabClick}
+              className={`px-6 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'realtime'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              🌐 실시간 채팅
             </button>
             <button
               onClick={() => setShowChatHistory(true)}
@@ -92,6 +134,8 @@ function HomeContent() {
               onNewRecommendations={handleNewRecommendations}
               sessionId={selectedSessionId}
             />
+          ) : activeTab === 'realtime' && currentUser ? (
+            <RealTimeChatInterface currentUser={currentUser} />
           ) : (
             <div className="h-full overflow-y-auto custom-scrollbar">
               <BookmarkedRecommendations allRecommendations={allRecommendations} />
@@ -107,6 +151,18 @@ function HomeContent() {
               />
             </div>
           )}
+
+          {/* 사용자 프로필 모달 */}
+          <UserProfileModal
+            isOpen={showUserProfile}
+            onClose={() => setShowUserProfile(false)}
+            onSave={(user) => {
+              handleUserProfileSave(user);
+              setActiveTab('realtime');
+              setShowUserProfile(false);
+            }}
+            initialUser={currentUser || undefined}
+          />
           
           {/* 디버그 정보 (개발 모드에서만 표시) */}
           {process.env.NODE_ENV === 'development' && (

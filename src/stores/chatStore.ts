@@ -13,7 +13,7 @@ export interface ChatSession {
   updatedAt: Date;
 }
 
-interface ChatStore {
+export interface ChatStore {
   // 현재 활성 세션
   currentSession: ChatSession | null;
   
@@ -153,7 +153,13 @@ export const useChatStore = create<ChatStore>()(
       },
 
       loadSession: (sessionId: string) => {
-        const session = get().getSessionById(sessionId);
+        const state = get();
+        // 이미 같은 세션이 로드되어 있으면 무시
+        if (state.currentSession?.id === sessionId) {
+          return;
+        }
+        
+        const session = state.getSessionById(sessionId);
         if (session) {
           set({ currentSession: session });
         }
@@ -187,59 +193,31 @@ export const useChatStore = create<ChatStore>()(
     {
       name: 'ai-coach-chat-storage',
       storage: createJSONStorage(() => localStorage),
-      // Date 객체 직렬화/역직렬화 처리
-      serialize: (state) => {
-        return JSON.stringify({
-          ...state,
-          state: {
-            ...state.state,
-            sessions: state.state.sessions.map(session => ({
-              ...session,
-              createdAt: session.createdAt.toISOString(),
-              updatedAt: session.updatedAt.toISOString(),
-              messages: session.messages.map(msg => ({
-                ...msg,
-                timestamp: msg.timestamp.toISOString()
-              }))
-            })),
-            currentSession: state.state.currentSession ? {
-              ...state.state.currentSession,
-              createdAt: state.state.currentSession.createdAt.toISOString(),
-              updatedAt: state.state.currentSession.updatedAt.toISOString(),
-              messages: state.state.currentSession.messages.map(msg => ({
-                ...msg,
-                timestamp: msg.timestamp.toISOString()
-              }))
-            } : null
-          }
-        });
-      },
-      deserialize: (str) => {
-        const parsed = JSON.parse(str);
-        return {
-          ...parsed,
-          state: {
-            ...parsed.state,
-            sessions: parsed.state.sessions.map((session: any) => ({
-              ...session,
-              createdAt: new Date(session.createdAt),
-              updatedAt: new Date(session.updatedAt),
-              messages: session.messages.map((msg: any) => ({
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Date 객체 복원
+          state.sessions = state.sessions.map(session => ({
+            ...session,
+            createdAt: new Date(session.createdAt),
+            updatedAt: new Date(session.updatedAt),
+            messages: session.messages.map(msg => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp)
+            }))
+          }));
+          
+          if (state.currentSession) {
+            state.currentSession = {
+              ...state.currentSession,
+              createdAt: new Date(state.currentSession.createdAt),
+              updatedAt: new Date(state.currentSession.updatedAt),
+              messages: state.currentSession.messages.map(msg => ({
                 ...msg,
                 timestamp: new Date(msg.timestamp)
               }))
-            })),
-            currentSession: parsed.state.currentSession ? {
-              ...parsed.state.currentSession,
-              createdAt: new Date(parsed.state.currentSession.createdAt),
-              updatedAt: new Date(parsed.state.currentSession.updatedAt),
-              messages: parsed.state.currentSession.messages.map((msg: any) => ({
-                ...msg,
-                timestamp: new Date(msg.timestamp)
-              }))
-            } : null
+            };
           }
-        };
+        }
       }
     }
   )

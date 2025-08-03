@@ -1,6 +1,5 @@
 import puppeteer from 'puppeteer';
 import { ChatSession } from '@/stores/chatStore';
-import { Recommendation } from '@/types';
 
 export interface PDFExportOptions {
   session: ChatSession;
@@ -408,7 +407,7 @@ export class PDFGenerator {
       // PDF 생성
       const pdfBuffer = await page.pdf(pdfOptions);
       
-      return pdfBuffer;
+      return Buffer.from(pdfBuffer);
       
     } catch (error) {
       console.error('PDF 생성 오류:', error);
