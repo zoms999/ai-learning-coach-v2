@@ -1,9 +1,7 @@
 import { UserInput, AIResponse, ChatRequest } from '@/types';
 
 // API 클라이언트 설정
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://your-domain.com' 
-  : '';
+const API_BASE_URL = '';
 
 const DEFAULT_TIMEOUT = 30000; // 30초
 const MAX_RETRIES = 3;

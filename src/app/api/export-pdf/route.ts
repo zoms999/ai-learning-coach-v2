@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFGenerator, PDFExportOptions } from '@/lib/pdf-generator';
 import { ChatSession } from '@/stores/chatStore';
 
+// CORS 헤더 설정 함수
+function setCorsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return response;
+}
+
+// OPTIONS 요청 처리 (preflight)
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 200 });
+  return setCorsHeaders(response);
+}
+
 export interface PDFExportRequest {
   session: ChatSession;
   options?: {
@@ -29,24 +43,26 @@ export async function POST(request: NextRequest) {
     // 입력 데이터 검증
     if (!body.session) {
       console.error('세션 데이터 없음');
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { 
           success: false, 
           error: '세션 데이터가 필요합니다.' 
         },
         { status: 400 }
       );
+      return setCorsHeaders(errorResponse);
     }
 
     if (!body.session.messages || body.session.messages.length === 0) {
       console.error('메시지 데이터 없음');
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { 
           success: false, 
           error: '내보낼 메시지가 없습니다.' 
         },
         { status: 400 }
       );
+      return setCorsHeaders(errorResponse);
     }
 
     // PDF 생성 옵션 설정
@@ -72,7 +88,7 @@ export async function POST(request: NextRequest) {
     const fileName = PDFGenerator.generateFileName(body.session);
 
     // PDF 응답 반환
-    return new NextResponse(pdfBuffer, {
+    const pdfResponse = new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -83,6 +99,7 @@ export async function POST(request: NextRequest) {
         'Expires': '0'
       }
     });
+    return setCorsHeaders(pdfResponse);
 
   } catch (error) {
     console.error('=== PDF Export API 치명적 오류 ===');
@@ -92,7 +109,7 @@ export async function POST(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined
     });
     
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         success: false, 
         error: 'PDF 생성 중 오류가 발생했습니다.',
@@ -100,14 +117,16 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+    return setCorsHeaders(errorResponse);
   }
 }
 
 // GET 요청 처리 (헬스 체크)
 export async function GET() {
-  return NextResponse.json({ 
+  const response = NextResponse.json({ 
     status: 'ok', 
     message: 'PDF Export API is running',
     timestamp: new Date().toISOString()
   });
+  return setCorsHeaders(response);
 }
